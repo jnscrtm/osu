@@ -23,11 +23,11 @@ Ideas currently floating in the aether. They may manifest... or not---that is up
 - Input history overlay. Visualizing the keypress patterns, like ones you will see on osu! gameplay streams, clips, or contents. 
 
 ## About This Fork's Maintainer
-I am going around in the online worlds with name "Jean-Valentin Auguste". A univerity student and an osu! player who, among others:
+I am going around in the online worlds with name "Jean-Valentin Auguste". A university student and an osu! player who, among others:
 - is studying physics in university for science bachelor,
 - likes physics, math, and coding (mostly C++), and
 - is appreciating the sheer aesthetic potentials of osu!lazer,
-- is somewhere deep in the lower end of 6-digit osu!std ranking
+- is somewhere deep in the lower end of 6-digit osu!std ranking.
 
 osu! Profile: [jnscrtm](osu.ppy.sh/users/37827365)
 
