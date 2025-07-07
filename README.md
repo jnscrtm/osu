@@ -13,7 +13,7 @@ The name of the new HUD component is pretty self-explanatory; it can show a real
 
 The number of decimal places can be adjusted directly from Skin Editor as is plausible for each metric. I implemented a custom generic number roller that rolls only number named `NumberRoller<T>` in the same namespace (but it will be moved to a more appropriate namespace at some point) as `RollingCounter<T>` has not been cooperative with my current objectives. Many expected properties may not be present yet.
 
-## Tentative Plan
+## Tentative Plans
 I want to extend the component's capability to all gameplay metrics (including UR and judgement counters). Further, I want to eventually make this element to be capable of text templating, as has the existing `BeatmapAttributeText` been. If everything has been stable enough, I may check out a dedicated feature branch for it, then may or may not reset the playground branch. If I am confident enough, I may also draft a PR afterwards.
 
 ## Spectral Ideas
