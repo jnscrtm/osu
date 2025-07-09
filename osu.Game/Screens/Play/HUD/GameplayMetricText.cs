@@ -19,6 +19,7 @@ using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Graphics.Textures;
 using osu.Framework.Localisation;
+using osu.Framework.Threading;
 using osu.Framework.Timing;
 using osu.Framework.Utils;
 using osu.Game.Beatmaps;
@@ -72,16 +73,19 @@ namespace osu.Game.Screens.Play.HUD
         private DifficultyAttributes difficultyAttributes = null!;
 
         // Performance-related fields
+        private DifficultyAttributes? attrib;
         private List<TimedDifficultyAttributes>? timedAttributes;
         public virtual bool IsValid { get; set; }
         private JudgementResult lastJudgement = null!;
         private ScoreInfo scoreInfo = null!;
         private PerformanceCalculator? performanceCalculator;
-        private DifficultyAttributes? attrib;
+        private HitEventExtensions.UnstableRateCalculationResult? unstableRateResult;
 
         // Display- and render-related fields
         private readonly OsuSpriteText text;
         private NumberRoller<double> roller;
+
+        private Task<ScheduledDelegate> taskScheduler = null!;
 
         public GameplayMetricText()
         {
@@ -112,7 +116,7 @@ namespace osu.Game.Screens.Play.HUD
                 performanceCalculator = gameplayState.Ruleset.CreatePerformanceCalculator();
 
                 var gameplayWorkingBeatmap = new GameplayWorkingBeatmap(gameplayState.Beatmap);
-                difficultyCache.GetTimedDifficultyAttributesAsync(gameplayWorkingBeatmap, gameplayState.Ruleset, clonedMods, loadCancellationSource.Token)
+                taskScheduler = difficultyCache.GetTimedDifficultyAttributesAsync(gameplayWorkingBeatmap, gameplayState.Ruleset, clonedMods, loadCancellationSource.Token)
                                .ContinueWith(task => Schedule(() =>
                                {
                                    timedAttributes = task.GetResultSafely();
@@ -218,19 +222,33 @@ namespace osu.Game.Screens.Play.HUD
                     final_res = scoreInfo.Accuracy * 100.0;
                     break;
                 case GameplayMetric.MaxAchievableAccuracy:
-                    final_res = scoreProcessor.MaximumAccuracy.Value;
+                    final_res = scoreProcessor.MaximumAccuracy.Value * 100.0;
                     break;
                 case GameplayMetric.MinAchievableAccuracy:
-                    final_res = scoreProcessor.MinimumAccuracy.Value;
+                    final_res = scoreProcessor.MinimumAccuracy.Value * 100.0;
                     break;
                 case GameplayMetric.Combo:
                     final_res = scoreInfo.Combo;
                     break;
                 case GameplayMetric.HP:
-                    final_res = gameplayState.HealthProcessor.Health.Value * 100;
+                    final_res = gameplayState.HealthProcessor.Health.Value * 100.0;
                     break;
                 case GameplayMetric.LongestCombo:
                     final_res = scoreInfo.MaxCombo;
+                    break;
+                case GameplayMetric.UnstableRate:
+                    unstableRateResult = scoreInfo.HitEvents.CalculateUnstableRate(unstableRateResult);
+                    final_res = unstableRateResult?.Result ?? 0.0;
+                    break;
+                case GameplayMetric.AverageHitError:
+                    final_res = scoreInfo.HitEvents.CalculateAverageHitError() ?? 0.0;
+                    break;
+                case GameplayMetric.MedianHitError:
+                    final_res = scoreInfo.HitEvents.CalculateMedianHitError() ?? 0.0;
+                    break;
+                case GameplayMetric.HitErrorStdDev:
+                    unstableRateResult = scoreInfo.HitEvents.CalculateUnstableRate(unstableRateResult);
+                    final_res = (unstableRateResult?.Result / 10.0) ?? 0.0;
                     break;
                 default:
                     final_res = 0;
@@ -259,6 +277,7 @@ namespace osu.Game.Screens.Play.HUD
 
                     updateText();
                 });
+
                 DecimalPlacesBindable.MaxValue = getMaxPrecision(); // To enforce an immediate correction upon load.
             }
         }
@@ -290,12 +309,15 @@ namespace osu.Game.Screens.Play.HUD
                 scoreProcessor.JudgementReverted -= onJudgementChanged;
             }
 
+            taskScheduler?.GetResultSafely().Cancel();
+            taskScheduler?.WaitSafely();
             loadCancellationSource?.Cancel();
             loadCancellationSource?.Dispose();
         }
         #endregion
 
         #region IMPL_CLASSES
+
         // TODO: This class shouldn't exist, but is required due to current IWorkingBeatmap/IBeatmap (hierarchial) design conflict.
         // Consider refactoring once this conflict along with the breaking changes has been resolved.
         private class GameplayWorkingBeatmap : WorkingBeatmap
@@ -349,7 +371,12 @@ namespace osu.Game.Screens.Play.HUD
 
     public enum GameplayMetric
     {
-        Score, HP, Accuracy, Combo, LongestCombo, PerformancePoints, MaxAchievableAccuracy, MinAchievableAccuracy
+        Score,
+        HP,
+        Combo, LongestCombo,
+        Accuracy, MaxAchievableAccuracy, MinAchievableAccuracy,
+        PerformancePoints,
+        UnstableRate, AverageHitError, MedianHitError, HitErrorStdDev
     }
 
     public partial class NumberRoller<T> where T : struct, IComparable<T>
